@@ -140,8 +140,6 @@ option {
 	border: 0;
 	border-radius: 500px;
 	color: var(--spice-sidebar);
-	display: -webkit-box;
-	display: -ms-flexbox;
 	display: flex;
 	height: 28px;
 	justify-content: center;

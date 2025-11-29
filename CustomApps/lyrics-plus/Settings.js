@@ -3,7 +3,7 @@ const ButtonSVG = ({ icon, active = true, onClick }) => {
 		"button",
 		{
 			className: `switch${active ? "" : " disabled"}`,
-			onClick
+			onClick,
 		},
 		react.createElement("svg", {
 			width: 16,
@@ -11,8 +11,8 @@ const ButtonSVG = ({ icon, active = true, onClick }) => {
 			viewBox: "0 0 16 16",
 			fill: "currentColor",
 			dangerouslySetInnerHTML: {
-				__html: icon
-			}
+				__html: icon,
+			},
 		})
 	);
 };
@@ -23,7 +23,7 @@ const SwapButton = ({ icon, disabled, onClick }) => {
 		{
 			className: "switch small",
 			onClick,
-			disabled
+			disabled,
 		},
 		react.createElement("svg", {
 			width: 10,
@@ -31,8 +31,8 @@ const SwapButton = ({ icon, disabled, onClick }) => {
 			viewBox: "0 0 16 16",
 			fill: "currentColor",
 			dangerouslySetInnerHTML: {
-				__html: icon
-			}
+				__html: icon,
+			},
 		})
 	);
 };
@@ -51,7 +51,7 @@ const CacheButton = () => {
 	}
 
 	const [count, setCount] = useState(Object.keys(lyrics).length);
-	const text = count ? "Clear cached lyrics" : "No cached lyrics";
+	const text = count ? "Clear all cached lyrics" : "No cached lyrics";
 
 	return react.createElement(
 		"button",
@@ -61,7 +61,7 @@ const CacheButton = () => {
 				localStorage.removeItem("lyrics-plus:local-lyrics");
 				setCount(0);
 			},
-			disabled: !count
+			disabled: !count,
 		},
 		text
 	);
@@ -73,7 +73,7 @@ const RefreshTokenButton = ({ setTokenCallback }) => {
 	useEffect(() => {
 		if (buttonText === "Refreshing token...") {
 			Spicetify.CosmosAsync.get("https://apic-desktop.musixmatch.com/ws/1.1/token.get?app_id=web-desktop-app-v1.0", null, {
-				authority: "apic-desktop.musixmatch.com"
+				authority: "apic-desktop.musixmatch.com",
 			})
 				.then(({ message: response }) => {
 					if (response.header.status_code === 200 && response.body.user_token) {
@@ -86,7 +86,7 @@ const RefreshTokenButton = ({ setTokenCallback }) => {
 						console.error("Failed to refresh token", response);
 					}
 				})
-				.catch(error => {
+				.catch((error) => {
 					setButtonText("Failed to refresh token");
 					console.error("Failed to refresh token", error);
 				});
@@ -100,14 +100,48 @@ const RefreshTokenButton = ({ setTokenCallback }) => {
 			onClick: () => {
 				setButtonText("Refreshing token...");
 			},
-			disabled: buttonText !== "Refresh token"
+			disabled: buttonText !== "Refresh token",
 		},
 		buttonText
 	);
 };
 
+const ConfigButton = ({ name, text, onChange = () => {} }) => {
+	return react.createElement(
+		"div",
+		{
+			className: "setting-row",
+		},
+		react.createElement(
+			"label",
+			{
+				className: "col description",
+			},
+			name
+		),
+		react.createElement(
+			"div",
+			{
+				className: "col action",
+			},
+			react.createElement(
+				"button",
+				{
+					className: "btn",
+					onClick: onChange,
+				},
+				text
+			)
+		)
+	);
+};
+
 const ConfigSlider = ({ name, defaultValue, onChange = () => {} }) => {
 	const [active, setActive] = useState(defaultValue);
+
+	useEffect(() => {
+		setActive(defaultValue);
+	}, [defaultValue]);
 
 	const toggleState = useCallback(() => {
 		const state = !active;
@@ -118,24 +152,24 @@ const ConfigSlider = ({ name, defaultValue, onChange = () => {} }) => {
 	return react.createElement(
 		"div",
 		{
-			className: "setting-row"
+			className: "setting-row",
 		},
 		react.createElement(
 			"label",
 			{
-				className: "col description"
+				className: "col description",
 			},
 			name
 		),
 		react.createElement(
 			"div",
 			{
-				className: "col action"
+				className: "col action",
 			},
 			react.createElement(ButtonSVG, {
 				icon: Spicetify.SVGIcons.check,
 				active,
-				onClick: toggleState
+				onClick: toggleState,
 			})
 		)
 	);
@@ -145,7 +179,7 @@ const ConfigSelection = ({ name, defaultValue, options, onChange = () => {} }) =
 	const [value, setValue] = useState(defaultValue);
 
 	const setValueCallback = useCallback(
-		event => {
+		(event) => {
 			let value = event.target.value;
 			if (!Number.isNaN(Number(value))) {
 				value = Number.parseInt(value);
@@ -165,32 +199,32 @@ const ConfigSelection = ({ name, defaultValue, options, onChange = () => {} }) =
 	return react.createElement(
 		"div",
 		{
-			className: "setting-row"
+			className: "setting-row",
 		},
 		react.createElement(
 			"label",
 			{
-				className: "col description"
+				className: "col description",
 			},
 			name
 		),
 		react.createElement(
 			"div",
 			{
-				className: "col action"
+				className: "col action",
 			},
 			react.createElement(
 				"select",
 				{
 					className: "main-dropDown-dropDown",
 					value,
-					onChange: setValueCallback
+					onChange: setValueCallback,
 				},
-				Object.keys(options).map(item =>
+				Object.keys(options).map((item) =>
 					react.createElement(
 						"option",
 						{
-							value: item
+							value: item,
 						},
 						options[item]
 					)
@@ -204,7 +238,7 @@ const ConfigInput = ({ name, defaultValue, onChange = () => {} }) => {
 	const [value, setValue] = useState(defaultValue);
 
 	const setValueCallback = useCallback(
-		event => {
+		(event) => {
 			const value = event.target.value;
 			setValue(value);
 			onChange(value);
@@ -215,23 +249,23 @@ const ConfigInput = ({ name, defaultValue, onChange = () => {} }) => {
 	return react.createElement(
 		"div",
 		{
-			className: "setting-row"
+			className: "setting-row",
 		},
 		react.createElement(
 			"label",
 			{
-				className: "col description"
+				className: "col description",
 			},
 			name
 		),
 		react.createElement(
 			"div",
 			{
-				className: "col action"
+				className: "col action",
 			},
 			react.createElement("input", {
 				value,
-				onChange: setValueCallback
+				onChange: setValueCallback,
 			})
 		)
 	);
@@ -253,36 +287,36 @@ const ConfigAdjust = ({ name, defaultValue, step, min, max, onChange = () => {} 
 	return react.createElement(
 		"div",
 		{
-			className: "setting-row"
+			className: "setting-row",
 		},
 		react.createElement(
 			"label",
 			{
-				className: "col description"
+				className: "col description",
 			},
 			name
 		),
 		react.createElement(
 			"div",
 			{
-				className: "col action"
+				className: "col action",
 			},
 			react.createElement(SwapButton, {
 				icon: `<path d="M2 7h12v2H0z"/>`,
 				onClick: () => adjust(-1),
-				disabled: value === min
+				disabled: value === min,
 			}),
 			react.createElement(
 				"p",
 				{
-					className: "adjust-value"
+					className: "adjust-value",
 				},
 				value
 			),
 			react.createElement(SwapButton, {
 				icon: Spicetify.SVGIcons.plus2px,
 				onClick: () => adjust(1),
-				disabled: value === max
+				disabled: value === max,
 			})
 		)
 	);
@@ -314,24 +348,24 @@ const ConfigHotkey = ({ name, defaultValue, onChange = () => {} }) => {
 	return react.createElement(
 		"div",
 		{
-			className: "setting-row"
+			className: "setting-row",
 		},
 		react.createElement(
 			"label",
 			{
-				className: "col description"
+				className: "col description",
 			},
 			name
 		),
 		react.createElement(
 			"div",
 			{
-				className: "col action"
+				className: "col action",
 			},
 			react.createElement("input", {
 				value,
 				onFocus: record,
-				onBlur: finishRecord
+				onBlur: finishRecord,
 			})
 		)
 	);
@@ -353,7 +387,7 @@ const ServiceOption = ({ item, onToggle, onSwap, isFirst = false, isLast = false
 	const [active, setActive] = useState(item.on);
 
 	const setTokenCallback = useCallback(
-		token => {
+		(token) => {
 			setToken(token);
 			onTokenChange(item.name, token);
 		},
@@ -373,51 +407,51 @@ const ServiceOption = ({ item, onToggle, onSwap, isFirst = false, isLast = false
 		react.createElement(
 			"div",
 			{
-				className: "setting-row"
+				className: "setting-row",
 			},
 			react.createElement(
 				"h3",
 				{
-					className: "col description"
+					className: "col description",
 				},
 				item.name
 			),
 			react.createElement(
 				"div",
 				{
-					className: "col action"
+					className: "col action",
 				},
 				react.createElement(ServiceAction, {
 					item,
-					setTokenCallback
+					setTokenCallback,
 				}),
 				react.createElement(SwapButton, {
 					icon: Spicetify.SVGIcons["chart-up"],
 					onClick: () => onSwap(item.name, -1),
-					disabled: isFirst
+					disabled: isFirst,
 				}),
 				react.createElement(SwapButton, {
 					icon: Spicetify.SVGIcons["chart-down"],
 					onClick: () => onSwap(item.name, 1),
-					disabled: isLast
+					disabled: isLast,
 				}),
 				react.createElement(ButtonSVG, {
 					icon: Spicetify.SVGIcons.check,
 					active,
-					onClick: toggleActive
+					onClick: toggleActive,
 				})
 			)
 		),
 		react.createElement("span", {
 			dangerouslySetInnerHTML: {
-				__html: item.desc
-			}
+				__html: item.desc,
+			},
 		}),
 		item.token !== undefined &&
 			react.createElement("input", {
 				placeholder: `Place your ${item.name} token here`,
 				value: token,
-				onChange: event => setTokenCallback(event.target.value)
+				onChange: (event) => setTokenCallback(event.target.value),
 			})
 	);
 };
@@ -428,7 +462,7 @@ const ServiceList = ({ itemsList, onListChange = () => {}, onToggle = () => {}, 
 
 	const onSwap = useCallback(
 		(name, direction) => {
-			const curPos = items.findIndex(val => val === name);
+			const curPos = items.findIndex((val) => val === name);
 			const newPos = curPos + direction;
 			[items[curPos], items[newPos]] = [items[newPos], items[curPos]];
 			onListChange(items);
@@ -447,8 +481,24 @@ const ServiceList = ({ itemsList, onListChange = () => {}, onToggle = () => {}, 
 			isLast: index === maxIndex,
 			onSwap,
 			onTokenChange,
-			onToggle
+			onToggle,
 		});
+	});
+};
+
+const corsProxyTemplate = () => {
+	const [proxyValue, setProxyValue] = react.useState(localStorage.getItem("spicetify:corsProxyTemplate") || "https://cors-proxy.spicetify.app/{url}");
+
+	return react.createElement("input", {
+		placeholder: "CORS Proxy Template",
+		value: proxyValue,
+		onChange: (event) => {
+			const value = event.target.value;
+			setProxyValue(value);
+
+			if (value === "" || !value) return localStorage.removeItem("spicetify:corsProxyTemplate");
+			localStorage.setItem("spicetify:corsProxyTemplate", value);
+		},
 	});
 };
 
@@ -459,7 +509,7 @@ const OptionList = ({ type, items, onChange }) => {
 	useEffect(() => {
 		if (!type) return;
 
-		const eventListener = event => {
+		const eventListener = (event) => {
 			if (event.detail?.type !== type) return;
 			setItemList(event.detail.items);
 		};
@@ -468,7 +518,7 @@ const OptionList = ({ type, items, onChange }) => {
 		return () => document.removeEventListener("lyrics-plus", eventListener);
 	}, []);
 
-	return itemList.map(item => {
+	return itemList.map((item) => {
 		if (!item || (item.when && !item.when())) {
 			return;
 		}
@@ -482,16 +532,16 @@ const OptionList = ({ type, items, onChange }) => {
 				...item,
 				name: item.desc,
 				defaultValue: CONFIG.visual[item.key],
-				onChange: value => {
+				onChange: (value) => {
 					onChangeItem(item.key, value);
 					forceUpdate({});
-				}
+				},
 			}),
 			item.info &&
 				react.createElement("span", {
 					dangerouslySetInnerHTML: {
-						__html: item.info
-					}
+						__html: item.info,
+					},
 				})
 		);
 	});
@@ -501,7 +551,7 @@ function openConfig() {
 	const configContainer = react.createElement(
 		"div",
 		{
-			id: `${APP_NAME}-config-container`
+			id: `${APP_NAME}-config-container`,
 		},
 		react.createElement("h2", null, "Options"),
 		react.createElement(OptionList, {
@@ -510,7 +560,7 @@ function openConfig() {
 					desc: "Playbar button",
 					key: "playbar-button",
 					info: "Replace Spotify's lyrics button with Lyrics Plus.",
-					type: ConfigSlider
+					type: ConfigSlider,
 				},
 				{
 					desc: "Global delay",
@@ -519,7 +569,7 @@ function openConfig() {
 					type: ConfigAdjust,
 					min: -10000,
 					max: 10000,
-					step: 250
+					step: 250,
 				},
 				{
 					desc: "Font size",
@@ -528,7 +578,7 @@ function openConfig() {
 					type: ConfigAdjust,
 					min: fontSizeLimit.min,
 					max: fontSizeLimit.max,
-					step: fontSizeLimit.step
+					step: fontSizeLimit.step,
 				},
 				{
 					desc: "Alignment",
@@ -537,64 +587,64 @@ function openConfig() {
 					options: {
 						left: "Left",
 						center: "Center",
-						right: "Right"
-					}
+						right: "Right",
+					},
 				},
 				{
 					desc: "Fullscreen hotkey",
 					key: "fullscreen-key",
-					type: ConfigHotkey
+					type: ConfigHotkey,
 				},
 				{
 					desc: "Compact synced: Lines to show before",
 					key: "lines-before",
 					type: ConfigSelection,
-					options: [0, 1, 2, 3, 4]
+					options: [0, 1, 2, 3, 4],
 				},
 				{
 					desc: "Compact synced: Lines to show after",
 					key: "lines-after",
 					type: ConfigSelection,
-					options: [0, 1, 2, 3, 4]
+					options: [0, 1, 2, 3, 4],
 				},
 				{
 					desc: "Compact synced: Fade-out blur",
 					key: "fade-blur",
-					type: ConfigSlider
+					type: ConfigSlider,
 				},
 				{
 					desc: "Noise overlay",
 					key: "noise",
-					type: ConfigSlider
+					type: ConfigSlider,
 				},
 				{
 					desc: "Colorful background",
 					key: "colorful",
-					type: ConfigSlider
+					type: ConfigSlider,
 				},
 				{
 					desc: "Background color",
 					key: "background-color",
 					type: ConfigInput,
-					when: () => !CONFIG.visual.colorful
+					when: () => !CONFIG.visual.colorful,
 				},
 				{
 					desc: "Active text color",
 					key: "active-color",
 					type: ConfigInput,
-					when: () => !CONFIG.visual.colorful
+					when: () => !CONFIG.visual.colorful,
 				},
 				{
 					desc: "Inactive text color",
 					key: "inactive-color",
 					type: ConfigInput,
-					when: () => !CONFIG.visual.colorful
+					when: () => !CONFIG.visual.colorful,
 				},
 				{
 					desc: "Highlight text background",
 					key: "highlight-color",
 					type: ConfigInput,
-					when: () => !CONFIG.visual.colorful
+					when: () => !CONFIG.visual.colorful,
 				},
 				{
 					desc: "Text convertion: Japanese Detection threshold (Advanced)",
@@ -603,7 +653,7 @@ function openConfig() {
 					type: ConfigAdjust,
 					min: thresholdSizeLimit.min,
 					max: thresholdSizeLimit.max,
-					step: thresholdSizeLimit.step
+					step: thresholdSizeLimit.step,
 				},
 				{
 					desc: "Text convertion: Traditional-Simplified Detection threshold (Advanced)",
@@ -612,8 +662,18 @@ function openConfig() {
 					type: ConfigAdjust,
 					min: thresholdSizeLimit.min,
 					max: thresholdSizeLimit.max,
-					step: thresholdSizeLimit.step
-				}
+					step: thresholdSizeLimit.step,
+				},
+				{
+					desc: "Clear Memory Cache",
+					info: "Loaded lyrics are cached in memory for faster reloading. Press this button to clear the cached lyrics from memory without restarting Spotify.",
+					key: "clear-memore-cache",
+					text: "Clear memory cache",
+					type: ConfigButton,
+					onChange: () => {
+						reloadLyrics?.();
+					},
+				},
 			],
 			onChange: (name, value) => {
 				CONFIG.visual[name] = value;
@@ -624,34 +684,49 @@ function openConfig() {
 					detail: {
 						type: "config",
 						name: name,
-						value: value
-					}
+						value: value,
+					},
 				});
 				window.dispatchEvent(configChange);
-			}
+			},
 		}),
 		react.createElement("h2", null, "Providers"),
 		react.createElement(ServiceList, {
 			itemsList: CONFIG.providersOrder,
-			onListChange: list => {
+			onListChange: (list) => {
 				CONFIG.providersOrder = list;
 				localStorage.setItem(`${APP_NAME}:services-order`, JSON.stringify(list));
+				reloadLyrics?.();
 			},
 			onToggle: (name, value) => {
 				CONFIG.providers[name].on = value;
 				localStorage.setItem(`${APP_NAME}:provider:${name}:on`, value);
-				lyricContainerUpdate?.();
+				reloadLyrics?.();
 			},
 			onTokenChange: (name, value) => {
 				CONFIG.providers[name].token = value;
 				localStorage.setItem(`${APP_NAME}:provider:${name}:token`, value);
-			}
+				reloadLyrics?.();
+			},
+		}),
+		react.createElement("h2", null, "CORS Proxy Template"),
+		react.createElement("span", {
+			dangerouslySetInnerHTML: {
+				__html:
+					"Use this to bypass CORS restrictions. Replace the URL with your cors proxy server of your choice. <code>{url}</code> will be replaced with the request URL.",
+			},
+		}),
+		react.createElement(corsProxyTemplate),
+		react.createElement("span", {
+			dangerouslySetInnerHTML: {
+				__html: "Spotify will reload its webview after applying. Leave empty to restore default: <code>https://cors-proxy.spicetify.app/{url}</code>",
+			},
 		})
 	);
 
 	Spicetify.PopupModal.display({
 		title: "Lyrics Plus",
 		content: configContainer,
-		isLarge: true
+		isLarge: true,
 	});
 }

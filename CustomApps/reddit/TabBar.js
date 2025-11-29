@@ -4,10 +4,10 @@ class TabBarItem extends react.Component {
 			"li",
 			{
 				className: "reddit-tabBar-headerItem",
-				onClick: event => {
+				onClick: (event) => {
 					event.preventDefault();
 					this.props.switchTo(this.props.item.key);
-				}
+				},
 			},
 			react.createElement(
 				"a",
@@ -15,12 +15,12 @@ class TabBarItem extends react.Component {
 					"aria-current": "page",
 					className: `reddit-tabBar-headerItemLink ${this.props.item.active ? "reddit-tabBar-active" : ""}`,
 					draggable: "false",
-					href: ""
+					href: "",
 				},
 				react.createElement(
 					"span",
 					{
-						className: "main-type-mestoBold"
+						className: "main-type-mestoBold",
 					},
 					this.props.item.value
 				)
@@ -30,26 +30,27 @@ class TabBarItem extends react.Component {
 }
 
 const TabBarMore = react.memo(({ items, switchTo }) => {
-	const activeItem = items.find(item => item.active);
+	const activeItem = items.find((item) => item.active);
 
 	return react.createElement(
 		"li",
 		{
-			className: `reddit-tabBar-headerItem ${activeItem ? "reddit-tabBar-active" : ""}`
+			className: `reddit-tabBar-headerItem ${activeItem ? "reddit-tabBar-active" : ""}`,
 		},
 		react.createElement(OptionsMenu, {
 			options: items,
 			onSelect: switchTo,
 			selected: activeItem,
 			defaultValue: "More",
-			bold: true
+			bold: true,
 		})
 	);
 });
 
 const TopBarContent = ({ links, activeLink, switchCallback }) => {
-	const resizeHost =
-		document.querySelector(".Root__main-view .os-resize-observer-host") ?? document.querySelector(".Root__main-view .os-size-observer");
+	const resizeHost = document.querySelector(
+		".Root__main-view .os-resize-observer-host, .Root__main-view .os-size-observer, .Root__main-view .main-view-container__scroll-node"
+	);
 	const [windowSize, setWindowSize] = useState(resizeHost.clientWidth);
 	const resizeHandler = () => setWindowSize(resizeHost.clientWidth);
 
@@ -69,7 +70,7 @@ const TopBarContent = ({ links, activeLink, switchCallback }) => {
 			links,
 			activeLink,
 			windowSize,
-			switchCallback
+			switchCallback,
 		})
 	);
 };
@@ -79,7 +80,7 @@ const TabBarContext = ({ children }) => {
 		react.createElement(
 			"div",
 			{
-				className: "main-topBar-topbarContent"
+				className: "main-topBar-topbarContent",
 			},
 			children
 		),
@@ -93,7 +94,7 @@ const TabBar = react.memo(({ links, activeLink, switchCallback, windowSize = Num
 	const [availableSpace, setAvailableSpace] = useState(0);
 	const [droplistItem, setDroplistItems] = useState([]);
 
-	const options = links.map(key => {
+	const options = links.map((key) => {
 		const active = key === activeLink;
 		return { key, value: key, active };
 	});
@@ -107,7 +108,7 @@ const TabBar = react.memo(({ links, activeLink, switchCallback, windowSize = Num
 		if (!tabBarRef.current) return;
 
 		const children = Array.from(tabBarRef.current.children);
-		const tabbarItemSizes = children.map(child => child.clientWidth);
+		const tabbarItemSizes = children.map((child) => child.clientWidth);
 
 		setChildrenSizes(tabbarItemSizes);
 	}, [links]);
@@ -147,26 +148,26 @@ const TabBar = react.memo(({ links, activeLink, switchCallback, windowSize = Num
 	return react.createElement(
 		"nav",
 		{
-			className: "reddit-tabBar reddit-tabBar-nav"
+			className: "reddit-tabBar reddit-tabBar-nav",
 		},
 		react.createElement(
 			"ul",
 			{
 				className: "reddit-tabBar-header",
-				ref: tabBarRef
+				ref: tabBarRef,
 			},
 			options
 				.filter((_, id) => !droplistItem.includes(id))
-				.map(item =>
+				.map((item) =>
 					react.createElement(TabBarItem, {
 						item,
-						switchTo: switchCallback
+						switchTo: switchCallback,
 					})
 				),
 			droplistItem.length || childrenSizes.length === 0
 				? react.createElement(TabBarMore, {
-						items: droplistItem.map(i => options[i]).filter(Boolean),
-						switchTo: switchCallback
+						items: droplistItem.map((i) => options[i]).filter(Boolean),
+						switchTo: switchCallback,
 					})
 				: null
 		)

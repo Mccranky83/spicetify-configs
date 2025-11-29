@@ -9,7 +9,7 @@ const Utils = {
 		const rgb = {
 			r: Math.round(((colorInt >> 16) & 0xff) / div),
 			g: Math.round(((colorInt >> 8) & 0xff) / div),
-			b: Math.round((colorInt & 0xff) / div)
+			b: Math.round((colorInt & 0xff) / div),
 		};
 		return `rgb(${rgb.r},${rgb.g},${rgb.b})`;
 	},
@@ -70,7 +70,7 @@ const Utils = {
 	 */
 	async toSimplifiedChinese(s) {
 		// create a singleton Translator instance
-		if (!this._translatorInstance) this.translator = new Translator("zh");
+		if (!this._translatorInstance) this.translator = new Translator("zh", true);
 
 		// translate to Simplified Chinese
 		// as Traditional Chinese differs between HK and TW, forcing to use OpenCC standard
@@ -88,7 +88,7 @@ const Utils = {
 		return s.replace(/\s-\s.*/, "");
 	},
 	capitalize(s) {
-		return s.replace(/^(\w)/, $1 => $1.toUpperCase());
+		return s.replace(/^(\w)/, ($1) => $1.toUpperCase());
 	},
 	detectLanguage(lyrics) {
 		if (!Array.isArray(lyrics)) return;
@@ -96,7 +96,7 @@ const Utils = {
 		// Should return IETF BCP 47 language tags.
 		// This should detect the song's main language.
 		// Remember there is a possibility of a song referencing something in another language and the lyrics show it in that native language!
-		const rawLyrics = lyrics.map(line => line.text).join(" ");
+		const rawLyrics = lyrics[0].originalText ? lyrics.map((line) => line.originalText).join(" ") : lyrics.map((line) => line.text).join(" ");
 
 		const kanaRegex = /[\u3001-\u3003]|[\u3005\u3007]|[\u301d-\u301f]|[\u3021-\u3035]|[\u3038-\u303a]|[\u3040-\u30ff]|[\uff66-\uff9f]/gu;
 		const hangulRegex = /(\S*[\u3131-\u314e|\u314f-\u3163|\uac00-\ud7a3]+\S*)/g;
@@ -112,17 +112,17 @@ const Utils = {
 
 		if (!cjkMatch) return;
 
-		const kanaCount = cjkMatch.filter(glyph => kanaRegex.test(glyph)).length;
-		const hanziCount = cjkMatch.filter(glyph => hanziRegex.test(glyph)).length;
-		const simpCount = cjkMatch.filter(glyph => simpRegex.test(glyph)).length;
-		const tradCount = cjkMatch.filter(glyph => tradRegex.test(glyph)).length;
+		const kanaCount = cjkMatch.filter((glyph) => kanaRegex.test(glyph)).length;
+		const hanziCount = cjkMatch.filter((glyph) => hanziRegex.test(glyph)).length;
+		const simpCount = cjkMatch.filter((glyph) => simpRegex.test(glyph)).length;
+		const tradCount = cjkMatch.filter((glyph) => tradRegex.test(glyph)).length;
 
 		const kanaPercentage = kanaCount / cjkMatch.length;
 		const hanziPercentage = hanziCount / cjkMatch.length;
 		const simpPercentage = simpCount / cjkMatch.length;
 		const tradPercentage = tradCount / cjkMatch.length;
 
-		if (cjkMatch.filter(glyph => hangulRegex.test(glyph)).length !== 0) {
+		if (cjkMatch.filter((glyph) => hangulRegex.test(glyph)).length !== 0) {
 			return "ko";
 		}
 
@@ -132,34 +132,57 @@ const Utils = {
 
 		return ((simpPercentage - tradPercentage + 1) / 2) * 100 >= CONFIG.visual["hans-detect-threshold"] ? "zh-hans" : "zh-hant";
 	},
-	processTranslatedLyrics(result, lyricsToTranslate, { state, stateName }) {
-		const translatedLines = result.split("\n");
+	processTranslatedLyrics(translated, original) {
+		return original.map((lyric, index) => ({
+			startTime: lyric.startTime || 0,
+			text: this.rubyTextToReact(translated[index]),
+			originalText: lyric.text,
+		}));
+	},
+	/** It seems that this function is not being used, but I'll keep it just in case it’s needed in the future.*/
+	processTranslatedOriginalLyrics(lyrics, synced) {
+		const data = [];
+		const dataSouce = {};
 
-		state[stateName] = [];
+		for (const item of lyrics) {
+			dataSouce[item.startTime] = { translate: item.text };
+		}
 
-		for (let i = 0; i < lyricsToTranslate.length; i++)
-			state[stateName].push({
-				startTime: lyricsToTranslate[i].startTime || 0,
-				text: this.rubyTextToReact(translatedLines[i])
-			});
+		for (const time in synced) {
+			dataSouce[item.startTime] = {
+				...dataSouce[item.startTime],
+				text: item.text,
+			};
+		}
+
+		for (const time in dataSouce) {
+			const item = dataSouce[time];
+			const lyric = {
+				startTime: time || 0,
+				text: this.rubyTextToOriginalReact(item.translate || item.text, item.text || item.translate),
+			};
+			data.push(lyric);
+		}
+
+		return data;
+	},
+	rubyTextToOriginalReact(translated, syncedText) {
+		const react = Spicetify.React;
+		return react.createElement("p1", null, [react.createElement("ruby", {}, syncedText, react.createElement("rt", null, translated))]);
 	},
 	rubyTextToReact(s) {
 		const react = Spicetify.React;
-
 		const rubyElems = s.split("<ruby>");
 		const reactChildren = [];
 
 		reactChildren.push(rubyElems[0]);
-
 		for (let i = 1; i < rubyElems.length; i++) {
 			const kanji = rubyElems[i].split("<rp>")[0];
 			const furigana = rubyElems[i].split("<rt>")[1].split("</rt>")[0];
-
 			reactChildren.push(react.createElement("ruby", null, kanji, react.createElement("rt", null, furigana)));
 
 			reactChildren.push(rubyElems[i].split("</ruby>")[1]);
 		}
-
 		return react.createElement("p1", null, reactChildren);
 	},
 	formatTime(timestamp) {
@@ -175,7 +198,7 @@ const Utils = {
 	formatTextWithTimestamps(text, startTime = 0) {
 		if (text.props?.children) {
 			return text.props.children
-				.map(child => {
+				.map((child) => {
 					if (typeof child === "string") {
 						return child;
 					}
@@ -188,7 +211,7 @@ const Utils = {
 		if (Array.isArray(text)) {
 			let wordTime = startTime;
 			return text
-				.map(word => {
+				.map((word) => {
 					wordTime += word.time;
 					return `${word.word}<${this.formatTime(wordTime)}>`;
 				})
@@ -196,13 +219,58 @@ const Utils = {
 		}
 		return text;
 	},
-	convertParsedToLRC(lyrics) {
-		return lyrics
-			.map(line => {
-				if (!line.startTime) return line.text;
-				return `[${this.formatTime(line.startTime)}]${this.formatTextWithTimestamps(line.text, line.startTime)}`;
-			})
-			.join("\n");
+	convertParsedToLRC(lyrics, isBelow) {
+		let original = "";
+		let conver = "";
+
+		if (isBelow) {
+			for (const line of lyrics) {
+				original += `[${this.formatTime(line.startTime)}]${this.formatTextWithTimestamps(line.originalText, line.startTime)}\n`;
+				conver += `[${this.formatTime(line.startTime)}]${this.formatTextWithTimestamps(line.text, line.startTime)}\n`;
+			}
+		} else {
+			for (const line of lyrics) {
+				original += `[${this.formatTime(line.startTime)}]${this.formatTextWithTimestamps(line.text, line.startTime)}\n`;
+			}
+		}
+
+		return {
+			original,
+			conver,
+		};
+	},
+	convertParsedToUnsynced(lyrics, isBelow) {
+		let original = "";
+		let conver = "";
+
+		if (isBelow) {
+			for (const line of lyrics) {
+				if (typeof line.originalText === "object") {
+					original += `${line.originalText?.props?.children?.[0]}\n`;
+				} else {
+					original += `${line.originalText}\n`;
+				}
+
+				if (typeof line.text === "object") {
+					conver += `${line.text?.props?.children?.[0]}\n`;
+				} else {
+					conver += `${line.text}\n`;
+				}
+			}
+		} else {
+			for (const line of lyrics) {
+				if (typeof line.text === "object") {
+					original += `${line.text?.props?.children?.[0]}\n`;
+				} else {
+					original += `${line.text}\n`;
+				}
+			}
+		}
+
+		return {
+			original,
+			conver,
+		};
 	},
 	parseLocalLyrics(lyrics) {
 		// Preprocess lyrics by removing [tags] and empty lines
@@ -212,7 +280,7 @@ const Utils = {
 			.split("\n");
 
 		const syncedTimestamp = /\[([0-9:.]+)\]/;
-		const karaokeTimestamp = /\<([0-9:.]+)\>/;
+		const karaokeTimestamp = /<([0-9:.]+)>/;
 
 		const unsynced = [];
 
@@ -223,14 +291,14 @@ const Utils = {
 		const karaoke = isKaraoke ? [] : null;
 
 		function timestampToMs(timestamp) {
-			const [minutes, seconds] = timestamp.replace(/\[\]\<\>/, "").split(":");
+			const [minutes, seconds] = timestamp.replace(/\[\]<>/, "").split(":");
 			return Number(minutes) * 60 * 1000 + Number(seconds) * 1000;
 		}
 
 		function parseKaraokeLine(line, startTime) {
 			let wordTime = timestampToMs(startTime);
 			const karaokeLine = [];
-			const karaoke = line.matchAll(/(\S+ ?)\<([0-9:.]+)\>/g);
+			const karaoke = line.matchAll(/(\S+ ?)<([0-9:.]+)>/g);
 			for (const match of karaoke) {
 				const word = match[1];
 				const time = match[2];
@@ -243,7 +311,7 @@ const Utils = {
 		for (const [i, line] of lines.entries()) {
 			const time = line.match(syncedTimestamp)?.[1];
 			let lyricContent = line.replace(syncedTimestamp, "").trim();
-			const lyric = lyricContent.replaceAll(/\<([0-9:.]+)\>/g, "").trim();
+			const lyric = lyricContent.replaceAll(/<([0-9:.]+)>/g, "").trim();
 
 			if (line.trim() !== "") {
 				if (isKaraoke) {
@@ -266,5 +334,5 @@ const Utils = {
 		return lyrics
 			.replace(/　| /g, "") // Remove space
 			.replace(/[!"#$%&'()*+,-./:;<=>?@[\]^_`{|}~？！，。、《》【】「」]/g, ""); // Remove punctuation
-	}
+	},
 };

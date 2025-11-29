@@ -6,12 +6,13 @@ const openCCPath = "https://cdn.jsdelivr.net/npm/opencc-js@1.0.5/dist/umd/full.m
 const dictPath = "https:/cdn.jsdelivr.net/npm/kuromoji@0.1.2/dict";
 
 class Translator {
-	constructor(lang) {
+	constructor(lang, isUsingNetease = false) {
 		this.finished = {
 			ja: false,
 			ko: false,
-			zh: false
+			zh: false,
 		};
+		this.isUsingNetease = isUsingNetease;
 
 		this.applyKuromojiFix();
 		this.injectExternals(lang);
@@ -19,7 +20,7 @@ class Translator {
 	}
 
 	includeExternal(url) {
-		if (CONFIG.visual.translate && !document.querySelector(`script[src="${url}"]`)) {
+		if ((CONFIG.visual.translate || this.isUsingNetease) && !document.querySelector(`script[src="${url}"]`)) {
 			const script = document.createElement("script");
 			script.setAttribute("type", "text/javascript");
 			script.setAttribute("src", url);
@@ -40,6 +41,21 @@ class Translator {
 				this.includeExternal(openCCPath);
 				break;
 		}
+	}
+
+	async awaitFinished(language) {
+		return new Promise((resolve) => {
+			const interval = setInterval(() => {
+				this.injectExternals(language);
+				this.createTranslator(language);
+
+				const lan = language.slice(0, 2);
+				if (this.finished[lan]) {
+					clearInterval(interval);
+					resolve();
+				}
+			}, 100);
+		});
 	}
 
 	/**
@@ -106,7 +122,7 @@ class Translator {
 
 		return this.kuroshiro.convert(text, {
 			to: target,
-			mode: mode
+			mode: mode,
 		});
 	}
 
@@ -128,7 +144,7 @@ class Translator {
 
 		const converter = this.OpenCC.Converter({
 			from: from,
-			to: target
+			to: target,
 		});
 
 		return converter(text);
@@ -141,6 +157,6 @@ class Translator {
 	 * @returns {Promise<void>}
 	 */
 	static async #sleep(ms) {
-		return new Promise(resolve => setTimeout(resolve, ms));
+		return new Promise((resolve) => setTimeout(resolve, ms));
 	}
 }

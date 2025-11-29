@@ -11,7 +11,7 @@ const CreditFooter = react.memo(({ provider, copyright }) => {
 			"p",
 			{
 				className: "lyrics-lyricsContainer-Provider main-type-mesto",
-				dir: "auto"
+				dir: "auto",
 			},
 			credit.join(" • ")
 		)
@@ -28,8 +28,8 @@ const IdlingIndicator = ({ isActive, progress, delay }) => {
 			style: {
 				"--position-index": 0,
 				"--animation-index": 1,
-				"--indicator-delay": `${delay}ms`
-			}
+				"--indicator-delay": `${delay}ms`,
+			},
 		},
 		react.createElement("div", { className: `lyrics-idling-indicator__circle ${progress >= 0.05 ? "active" : ""}` }),
 		react.createElement("div", { className: `lyrics-idling-indicator__circle ${progress >= 0.33 ? "active" : ""}` }),
@@ -40,10 +40,10 @@ const IdlingIndicator = ({ isActive, progress, delay }) => {
 const emptyLine = {
 	startTime: 0,
 	endTime: 0,
-	text: []
+	text: [],
 };
 
-const useTrackPosition = callback => {
+const useTrackPosition = (callback) => {
 	const callbackRef = useRef();
 	callbackRef.current = callback;
 
@@ -69,8 +69,10 @@ const KaraokeLine = ({ text, isActive, position, startTime }) => {
 			{
 				className: `lyrics-lyricsContainer-Karaoke-Word${isWordActive ? " lyrics-lyricsContainer-Karaoke-WordActive" : ""}`,
 				style: {
-					"--word-duration": `${time}ms`
-				}
+					"--word-duration": `${time}ms`,
+					// don't animate unless we have to
+					transition: !isWordActive ? "all 0s linear" : "",
+				},
 			},
 			word
 		);
@@ -94,7 +96,7 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 		() =>
 			[emptyLine, emptyLine, ...lyrics].map((line, i) => ({
 				...line,
-				lineNumber: i
+				lineNumber: i,
 			})),
 		[lyrics]
 	);
@@ -121,28 +123,26 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 		offset += -(activeLineEle.current.offsetTop + activeLineEle.current.clientHeight / 2);
 	}
 
-	const rawLyrics = Utils.convertParsedToLRC(lyrics);
-
 	return react.createElement(
 		"div",
 		{
 			className: "lyrics-lyricsContainer-SyncedLyricsPage",
-			ref: lyricContainerEle
+			ref: lyricContainerEle,
 		},
 		react.createElement(
 			"div",
 			{
 				className: "lyrics-lyricsContainer-SyncedLyrics",
 				style: {
-					"--offset": `${offset}px`
+					"--offset": `${offset}px`,
 				},
-				key: lyricsId
+				key: lyricsId,
 			},
-			activeLines.map(({ text, lineNumber, startTime }, i) => {
+			activeLines.map(({ text, lineNumber, startTime, originalText }, i) => {
 				if (i === 1 && activeLineIndex === 1) {
 					return react.createElement(IdlingIndicator, {
 						progress: position / activeLines[2].startTime,
-						delay: activeLines[2].startTime / 3
+						delay: activeLines[2].startTime / 3,
 					});
 				}
 
@@ -167,39 +167,70 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 				if (paddingLine) {
 					className += " lyrics-lyricsContainer-LyricsLine-paddingLine";
 				}
+				const showTranslatedBelow = CONFIG.visual["translate:display-mode"] === "below";
+				// If we have original text and we are showing translated below, we should show the original text
+				// Otherwise we should show the translated text
+				const lineText = originalText && showTranslatedBelow ? originalText : text;
+
+				// Convert lyrics to text for comparison
+				const belowOrigin = (typeof originalText === "object" ? originalText?.props?.children?.[0] : originalText)?.replace(/\s+/g, "");
+				const belowTxt = (typeof text === "object" ? text?.props?.children?.[0] : text)?.replace(/\s+/g, "");
+
+				const belowMode = showTranslatedBelow && originalText && belowOrigin !== belowTxt;
 
 				return react.createElement(
-					"p",
+					"div",
 					{
 						className,
 						style: {
 							cursor: "pointer",
 							"--position-index": animationIndex,
 							"--animation-index": (animationIndex < 0 ? 0 : animationIndex) + 1,
-							"--blur-index": Math.abs(animationIndex)
+							"--blur-index": Math.abs(animationIndex),
 						},
-						key: lineNumber,
 						dir: "auto",
 						ref,
-						onClick: event => {
+						key: lineNumber,
+						onClick: (event) => {
 							if (startTime) {
 								Spicetify.Player.seek(startTime);
 							}
 						},
-						onContextMenu: event => {
-							event.preventDefault();
-							Spicetify.Platform.ClipboardAPI.copy(rawLyrics)
-								.then(() => Spicetify.showNotification("Lyrics copied to clipboard"))
-								.catch(() => Spicetify.showNotification("Failed to copy lyrics to clipboard"));
-						}
 					},
-					!isKara ? text : react.createElement(KaraokeLine, { text, startTime, position, isActive })
+					react.createElement(
+						"p",
+						{
+							onContextMenu: (event) => {
+								event.preventDefault();
+								Spicetify.Platform.ClipboardAPI.copy(Utils.convertParsedToLRC(lyrics, belowMode).original)
+									.then(() => Spicetify.showNotification("Lyrics copied to clipboard"))
+									.catch(() => Spicetify.showNotification("Failed to copy lyrics to clipboard"));
+							},
+						},
+						!isKara ? lineText : react.createElement(KaraokeLine, { text, startTime, position, isActive })
+					),
+					belowMode &&
+						react.createElement(
+							"p",
+							{
+								style: {
+									opacity: 0.5,
+								},
+								onContextMenu: (event) => {
+									event.preventDefault();
+									Spicetify.Platform.ClipboardAPI.copy(Utils.convertParsedToLRC(lyrics, belowMode).conver)
+										.then(() => Spicetify.showNotification("Translated lyrics copied to clipboard"))
+										.catch(() => Spicetify.showNotification("Failed to copy translated lyrics to clipboard"));
+								},
+							},
+							text
+						)
 				);
 			})
 		),
 		react.createElement(CreditFooter, {
 			provider,
-			copyright
+			copyright,
 		})
 	);
 });
@@ -210,7 +241,7 @@ class SearchBar extends react.Component {
 		this.state = {
 			hidden: true,
 			atNode: 0,
-			foundNodes: []
+			foundNodes: [],
 		};
 		this.container = null;
 	}
@@ -233,7 +264,7 @@ class SearchBar extends react.Component {
 			this.container.blur();
 			this.setState({ hidden: true });
 		};
-		this.loopThroughCallback = event => {
+		this.loopThroughCallback = (event) => {
 			if (!this.state.foundNodes.length) {
 				return;
 			}
@@ -278,7 +309,7 @@ class SearchBar extends react.Component {
 		const walker = document.createTreeWalker(
 			lyricsPage,
 			NodeFilter.SHOW_TEXT,
-			node => {
+			(node) => {
 				if (node.textContent.toLowerCase().includes(value)) {
 					return NodeFilter.FILTER_ACCEPT;
 				}
@@ -316,13 +347,13 @@ class SearchBar extends react.Component {
 		return react.createElement(
 			"div",
 			{
-				className: `lyrics-Searchbar${this.state.hidden ? " hidden" : ""}`
+				className: `lyrics-Searchbar${this.state.hidden ? " hidden" : ""}`,
 			},
 			react.createElement("input", {
-				ref: c => {
+				ref: (c) => {
 					this.container = c;
 				},
-				onChange: this.getNodeFromInput.bind(this)
+				onChange: this.getNodeFromInput.bind(this),
 			}),
 			react.createElement("svg", {
 				width: 16,
@@ -330,13 +361,13 @@ class SearchBar extends react.Component {
 				viewBox: "0 0 16 16",
 				fill: "currentColor",
 				dangerouslySetInnerHTML: {
-					__html: Spicetify.SVGIcons.search
-				}
+					__html: Spicetify.SVGIcons.search,
+				},
 			}),
 			react.createElement(
 				"span",
 				{
-					hidden: this.state.foundNodes.length === 0
+					hidden: this.state.foundNodes.length === 0,
 				},
 				`${this.state.atNode + 1}/${this.state.foundNodes.length}`
 			),
@@ -344,8 +375,8 @@ class SearchBar extends react.Component {
 				className: "lyrics-Searchbar-highlight",
 				style: {
 					"--search-highlight-top": `${y}px`,
-					"--search-highlight-height": `${height}px`
-				}
+					"--search-highlight-height": `${height}px`,
+				},
 			})
 		);
 	}
@@ -387,14 +418,12 @@ const SyncedExpandedLyricsPage = react.memo(({ lyrics, provider, copyright, isKa
 		}
 	}
 
-	const rawLyrics = Utils.convertParsedToLRC(lyrics);
-
 	useEffect(() => {
 		if (activeLineRef.current && (!intialScroll[0] || isInViewport(activeLineRef.current))) {
 			activeLineRef.current.scrollIntoView({
 				behavior: "smooth",
 				block: "center",
-				inline: "nearest"
+				inline: "nearest",
 			});
 			intialScroll[0] = true;
 		}
@@ -405,89 +434,149 @@ const SyncedExpandedLyricsPage = react.memo(({ lyrics, provider, copyright, isKa
 		{
 			className: "lyrics-lyricsContainer-UnsyncedLyricsPage",
 			key: lyricsId,
-			ref: pageRef
+			ref: pageRef,
 		},
 		react.createElement("p", {
-			className: "lyrics-lyricsContainer-LyricsUnsyncedPadding"
+			className: "lyrics-lyricsContainer-LyricsUnsyncedPadding",
 		}),
-		padded.map(({ text, startTime }, i) => {
+		padded.map(({ text, startTime, originalText }, i) => {
 			if (i === 0) {
 				return react.createElement(IdlingIndicator, {
 					isActive: activeLineIndex === 0,
 					progress: position / padded[1].startTime,
-					delay: padded[1].startTime / 3
+					delay: padded[1].startTime / 3,
 				});
 			}
 
 			const isActive = i === activeLineIndex;
+			const showTranslatedBelow = CONFIG.visual["translate:display-mode"] === "below";
+			// If we have original text and we are showing translated below, we should show the original text
+			// Otherwise we should show the translated text
+			const lineText = originalText && showTranslatedBelow ? originalText : text;
+
+			// Convert lyrics to text for comparison
+			const belowOrigin = (typeof originalText === "object" ? originalText?.props?.children?.[0] : originalText)?.replace(/\s+/g, "");
+			const belowTxt = (typeof text === "object" ? text?.props?.children?.[0] : text)?.replace(/\s+/g, "");
+
+			const belowMode = showTranslatedBelow && originalText && belowOrigin !== belowTxt;
+
 			return react.createElement(
-				"p",
+				"div",
 				{
 					className: `lyrics-lyricsContainer-LyricsLine${i <= activeLineIndex ? " lyrics-lyricsContainer-LyricsLine-active" : ""}`,
+					key: i,
 					style: {
-						cursor: "pointer"
+						cursor: "pointer",
 					},
 					dir: "auto",
 					ref: isActive ? activeLineRef : null,
-					onClick: event => {
+					onClick: (event) => {
 						if (startTime) {
 							Spicetify.Player.seek(startTime);
 						}
 					},
-					onContextMenu: event => {
-						event.preventDefault();
-						Spicetify.Platform.ClipboardAPI.copy(rawLyrics)
-							.then(() => Spicetify.showNotification("Lyrics copied to clipboard"))
-							.catch(() => Spicetify.showNotification("Failed to copy lyrics to clipboard"));
-					}
 				},
-				!isKara ? text : react.createElement(KaraokeLine, { text, startTime, position, isActive })
+				react.createElement(
+					"p",
+					{
+						onContextMenu: (event) => {
+							event.preventDefault();
+							Spicetify.Platform.ClipboardAPI.copy(Utils.convertParsedToLRC(lyrics, belowMode).original)
+								.then(() => Spicetify.showNotification("Lyrics copied to clipboard"))
+								.catch(() => Spicetify.showNotification("Failed to copy lyrics to clipboard"));
+						},
+					},
+					!isKara ? lineText : react.createElement(KaraokeLine, { text, startTime, position, isActive })
+				),
+				belowMode &&
+					react.createElement(
+						"p",
+						{
+							style: { opacity: 0.5 },
+							onContextMenu: (event) => {
+								event.preventDefault();
+								Spicetify.Platform.ClipboardAPI.copy(Utils.convertParsedToLRC(lyrics, belowMode).conver)
+									.then(() => Spicetify.showNotification("Translated lyrics copied to clipboard"))
+									.catch(() => Spicetify.showNotification("Failed to copy translated lyrics to clipboard"));
+							},
+						},
+						text
+					)
 			);
 		}),
 		react.createElement("p", {
-			className: "lyrics-lyricsContainer-LyricsUnsyncedPadding"
+			className: "lyrics-lyricsContainer-LyricsUnsyncedPadding",
 		}),
 		react.createElement(CreditFooter, {
 			provider,
-			copyright
+			copyright,
 		}),
 		react.createElement(SearchBar, null)
 	);
 });
 
 const UnsyncedLyricsPage = react.memo(({ lyrics, provider, copyright }) => {
-	const rawLyrics = lyrics.map(lyrics => (typeof lyrics.text !== "object" ? lyrics.text : lyrics.text?.props?.children?.[0])).join("\n");
-
 	return react.createElement(
 		"div",
 		{
-			className: "lyrics-lyricsContainer-UnsyncedLyricsPage"
+			className: "lyrics-lyricsContainer-UnsyncedLyricsPage",
 		},
 		react.createElement("p", {
-			className: "lyrics-lyricsContainer-LyricsUnsyncedPadding"
+			className: "lyrics-lyricsContainer-LyricsUnsyncedPadding",
 		}),
-		lyrics.map(({ text }) => {
+		lyrics.map(({ text, originalText }, index) => {
+			const showTranslatedBelow = CONFIG.visual["translate:display-mode"] === "below";
+			// If we have original text and we are showing translated below, we should show the original text
+			// Otherwise we should show the translated text
+			const lineText = originalText && showTranslatedBelow ? originalText : text;
+
+			// Convert lyrics to text for comparison
+			const belowOrigin = (typeof originalText === "object" ? originalText?.props?.children?.[0] : originalText)?.replace(/\s+/g, "");
+			const belowTxt = (typeof text === "object" ? text?.props?.children?.[0] : text)?.replace(/\s+/g, "");
+
+			const belowMode = showTranslatedBelow && originalText && belowOrigin !== belowTxt;
+
 			return react.createElement(
-				"p",
+				"div",
 				{
 					className: "lyrics-lyricsContainer-LyricsLine lyrics-lyricsContainer-LyricsLine-active",
+					key: index,
 					dir: "auto",
-					onContextMenu: event => {
-						event.preventDefault();
-						Spicetify.Platform.ClipboardAPI.copy(rawLyrics)
-							.then(() => Spicetify.showNotification("Lyrics copied to clipboard"))
-							.catch(() => Spicetify.showNotification("Failed to copy lyrics to clipboard"));
-					}
 				},
-				text
+				react.createElement(
+					"p",
+					{
+						onContextMenu: (event) => {
+							event.preventDefault();
+							Spicetify.Platform.ClipboardAPI.copy(Utils.convertParsedToUnsynced(lyrics, belowMode).original)
+								.then(() => Spicetify.showNotification("Lyrics copied to clipboard"))
+								.catch(() => Spicetify.showNotification("Failed to copy lyrics to clipboard"));
+						},
+					},
+					lineText
+				),
+				belowMode &&
+					react.createElement(
+						"p",
+						{
+							style: { opacity: 0.5 },
+							onContextMenu: (event) => {
+								event.preventDefault();
+								Spicetify.Platform.ClipboardAPI.copy(Utils.convertParsedToUnsynced(lyrics, belowMode).conver)
+									.then(() => Spicetify.showNotification("Translated lyrics copied to clipboard"))
+									.catch(() => Spicetify.showNotification("Failed to copy translated lyrics to clipboard"));
+							},
+						},
+						text
+					)
 			);
 		}),
 		react.createElement("p", {
-			className: "lyrics-lyricsContainer-LyricsUnsyncedPadding"
+			className: "lyrics-lyricsContainer-LyricsUnsyncedPadding",
 		}),
 		react.createElement(CreditFooter, {
 			provider,
-			copyright
+			copyright,
 		}),
 		react.createElement(SearchBar, null)
 	);
@@ -501,7 +590,7 @@ noteDivider.innerHTML = `<svg width="32" height="32" viewBox="0 0 13 4" fill="cu
 noteDivider.style.setProperty("--link-left", 0);
 const noteTextContainer = document.createElement("div");
 noteTextContainer.classList.add("lyrics-Genius-noteTextContainer");
-noteTextContainer.onclick = event => {
+noteTextContainer.onclick = (event) => {
 	event.preventDefault();
 	event.stopPropagation();
 };
@@ -523,7 +612,7 @@ function showNote(parent, note) {
 			noteContainer.scrollIntoView({
 				behavior: "smooth",
 				block: "center",
-				inline: "nearest"
+				inline: "nearest",
 			});
 		}, 50);
 	}
@@ -550,11 +639,11 @@ const GeniusPage = react.memo(
 				} else {
 					id = id[1];
 				}
-				ProviderGenius.getNote(id).then(note => {
+				ProviderGenius.getNote(id).then((note) => {
 					notes[id] = note;
 					link.classList.add("fetched");
 				});
-				link.onclick = event => {
+				link.onclick = (event) => {
 					event.preventDefault();
 					if (!notes[id]) return;
 					showNote(link, notes[id]);
@@ -568,19 +657,19 @@ const GeniusPage = react.memo(
 			react.createElement(VersionSelector, { items: versions, index: versionIndex, callback: onVersionChange }),
 			react.createElement("div", {
 				className: "lyrics-lyricsContainer-LyricsLine lyrics-lyricsContainer-LyricsLine-active",
-				ref: c => {
+				ref: (c) => {
 					container = c;
 				},
 				dangerouslySetInnerHTML: {
-					__html: lyrics
+					__html: lyrics,
 				},
-				onContextMenu: event => {
+				onContextMenu: (event) => {
 					event.preventDefault();
 					const copylyrics = lyrics.replace(/<br>/g, "\n").replace(/<[^>]*>/g, "");
 					Spicetify.Platform.ClipboardAPI.copy(copylyrics)
 						.then(() => Spicetify.showNotification("Lyrics copied to clipboard"))
 						.catch(() => Spicetify.showNotification("Failed to copy lyrics to clipboard"));
-				}
+				},
 			})
 		);
 
@@ -594,19 +683,19 @@ const GeniusPage = react.memo(
 				react.createElement(VersionSelector, { items: versions, index: versionIndex2, callback: onVersionChange2 }),
 				react.createElement("div", {
 					className: "lyrics-lyricsContainer-LyricsLine lyrics-lyricsContainer-LyricsLine-active",
-					ref: c => {
+					ref: (c) => {
 						container2 = c;
 					},
 					dangerouslySetInnerHTML: {
-						__html: lyrics2
+						__html: lyrics2,
 					},
-					onContextMenu: event => {
+					onContextMenu: (event) => {
 						event.preventDefault();
 						const copylyrics = lyrics.replace(/<br>/g, "\n").replace(/<[^>]*>/g, "");
 						Spicetify.Platform.ClipboardAPI.copy(copylyrics)
 							.then(() => Spicetify.showNotification("Lyrics copied to clipboard"))
 							.catch(() => Spicetify.showNotification("Failed to copy lyrics to clipboard"));
-					}
+					},
 				})
 			);
 			mainContainer.push(lyricsEl2);
@@ -615,15 +704,15 @@ const GeniusPage = react.memo(
 		return react.createElement(
 			"div",
 			{
-				className: "lyrics-lyricsContainer-UnsyncedLyricsPage"
+				className: "lyrics-lyricsContainer-UnsyncedLyricsPage",
 			},
 			react.createElement("p", {
-				className: "lyrics-lyricsContainer-LyricsUnsyncedPadding main-type-ballad"
+				className: "lyrics-lyricsContainer-LyricsUnsyncedPadding main-type-ballad",
 			}),
 			react.createElement("div", { className: shouldSplit ? "split" : "" }, mainContainer),
 			react.createElement(CreditFooter, {
 				provider,
-				copyright
+				copyright,
 			}),
 			react.createElement(SearchBar, null)
 		);
@@ -636,7 +725,7 @@ const LoadingIcon = react.createElement(
 		width: "200px",
 		height: "200px",
 		viewBox: "0 0 100 100",
-		preserveAspectRatio: "xMidYMid"
+		preserveAspectRatio: "xMidYMid",
 	},
 	react.createElement(
 		"circle",
@@ -646,7 +735,7 @@ const LoadingIcon = react.createElement(
 			r: "0",
 			fill: "none",
 			stroke: "currentColor",
-			"stroke-width": "2"
+			"stroke-width": "2",
 		},
 		react.createElement("animate", {
 			attributeName: "r",
@@ -656,7 +745,7 @@ const LoadingIcon = react.createElement(
 			keyTimes: "0;1",
 			keySplines: "0 0.2 0.8 1",
 			calcMode: "spline",
-			begin: "0s"
+			begin: "0s",
 		}),
 		react.createElement("animate", {
 			attributeName: "opacity",
@@ -666,7 +755,7 @@ const LoadingIcon = react.createElement(
 			keyTimes: "0;1",
 			keySplines: "0.2 0 0.8 1",
 			calcMode: "spline",
-			begin: "0s"
+			begin: "0s",
 		})
 	),
 	react.createElement(
@@ -677,7 +766,7 @@ const LoadingIcon = react.createElement(
 			r: "0",
 			fill: "none",
 			stroke: "currentColor",
-			"stroke-width": "2"
+			"stroke-width": "2",
 		},
 		react.createElement("animate", {
 			attributeName: "r",
@@ -687,7 +776,7 @@ const LoadingIcon = react.createElement(
 			keyTimes: "0;1",
 			keySplines: "0 0.2 0.8 1",
 			calcMode: "spline",
-			begin: "-0.5s"
+			begin: "-0.5s",
 		}),
 		react.createElement("animate", {
 			attributeName: "opacity",
@@ -697,7 +786,7 @@ const LoadingIcon = react.createElement(
 			keyTimes: "0;1",
 			keySplines: "0.2 0 0.8 1",
 			calcMode: "spline",
-			begin: "-0.5s"
+			begin: "-0.5s",
 		})
 	)
 );
@@ -709,15 +798,15 @@ const VersionSelector = react.memo(({ items, index, callback }) => {
 	return react.createElement(
 		"div",
 		{
-			className: "lyrics-versionSelector"
+			className: "lyrics-versionSelector",
 		},
 		react.createElement(
 			"select",
 			{
-				onChange: event => {
+				onChange: (event) => {
 					callback(items, event.target.value);
 				},
-				value: index
+				value: index,
 			},
 			items.map((a, i) => {
 				return react.createElement("option", { value: i }, a.title);
@@ -729,10 +818,10 @@ const VersionSelector = react.memo(({ items, index, callback }) => {
 				height: "16",
 				width: "16",
 				fill: "currentColor",
-				viewBox: "0 0 16 16"
+				viewBox: "0 0 16 16",
 			},
 			react.createElement("path", {
-				d: "M3 6l5 5.794L13 6z"
+				d: "M3 6l5 5.794L13 6z",
 			})
 		)
 	);

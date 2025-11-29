@@ -1,8 +1,38 @@
 const ProviderMusixmatch = (() => {
 	const headers = {
 		authority: "apic-desktop.musixmatch.com",
-		cookie: "x-mxm-token-guid="
+		cookie: "x-mxm-token-guid=",
 	};
+
+	function findTranslationStatus(body) {
+		if (!body || typeof body !== "object") {
+			return null;
+		}
+
+		if (Array.isArray(body)) {
+			for (const item of body) {
+				const result = findTranslationStatus(item);
+				if (result) {
+					return result;
+				}
+			}
+
+			return null;
+		}
+
+		if (Array.isArray(body.track_lyrics_translation_status)) {
+			return body.track_lyrics_translation_status;
+		}
+
+		for (const value of Object.values(body)) {
+			const result = findTranslationStatus(value);
+			if (result) {
+				return result;
+			}
+		}
+
+		return null;
+	}
 
 	async function findLyrics(info) {
 		const baseURL =
@@ -18,13 +48,14 @@ const ProviderMusixmatch = (() => {
 			track_spotify_id: info.uri,
 			q_duration: durr,
 			f_subtitle_length: Math.floor(durr),
-			usertoken: CONFIG.providers.musixmatch.token
+			usertoken: CONFIG.providers.musixmatch.token,
+			part: "track_lyrics_translation_status",
 		};
 
 		const finalURL =
 			baseURL +
 			Object.keys(params)
-				.map(key => `${key}=${encodeURIComponent(params[key])}`)
+				.map((key) => `${key}=${encodeURIComponent(params[key])}`)
 				.join("&");
 
 		let body = await Spicetify.CosmosAsync.get(finalURL, null, headers);
@@ -34,15 +65,28 @@ const ProviderMusixmatch = (() => {
 		if (body["matcher.track.get"].message.header.status_code !== 200) {
 			return {
 				error: `Requested error: ${body["matcher.track.get"].message.header.mode}`,
-				uri: info.uri
+				uri: info.uri,
 			};
 		}
 		if (body["track.lyrics.get"]?.message?.body?.lyrics?.restricted) {
 			return {
 				error: "Unfortunately we're not authorized to show these lyrics.",
-				uri: info.uri
+				uri: info.uri,
 			};
 		}
+
+		const translationStatus = findTranslationStatus(body);
+		const meta = body?.["matcher.track.get"]?.message?.body;
+		const availableTranslations = Array.isArray(translationStatus) ? [...new Set(translationStatus.map((status) => status?.to).filter(Boolean))] : [];
+
+		Object.defineProperties(body, {
+			__musixmatchTranslationStatus: {
+				value: availableTranslations,
+			},
+			__musixmatchTrackId: {
+				value: meta?.track?.track_id ?? null,
+			},
+		});
 
 		return body;
 	}
@@ -63,13 +107,13 @@ const ProviderMusixmatch = (() => {
 			f_subtitle_length: meta.track.track_length,
 			q_duration: meta.track.track_length,
 			commontrack_id: meta.track.commontrack_id,
-			usertoken: CONFIG.providers.musixmatch.token
+			usertoken: CONFIG.providers.musixmatch.token,
 		};
 
 		const finalURL =
 			baseURL +
 			Object.keys(params)
-				.map(key => `${key}=${encodeURIComponent(params[key])}`)
+				.map((key) => `${key}=${encodeURIComponent(params[key])}`)
 				.join("&");
 
 		let result = await Spicetify.CosmosAsync.get(finalURL, null, headers);
@@ -80,7 +124,7 @@ const ProviderMusixmatch = (() => {
 
 		result = result.message.body;
 
-		const parsedKaraoke = JSON.parse(result.richsync.richsync_body).map(line => {
+		const parsedKaraoke = JSON.parse(result.richsync.richsync_body).map((line) => {
 			const startTime = line.ts * 1000;
 			const endTime = line.te * 1000;
 			const words = line.l;
@@ -94,12 +138,12 @@ const ProviderMusixmatch = (() => {
 
 				return {
 					word: wordText,
-					time
+					time,
 				};
 			});
 			return {
 				startTime,
-				text
+				text,
 			};
 		});
 
@@ -125,9 +169,9 @@ const ProviderMusixmatch = (() => {
 				return null;
 			}
 
-			return JSON.parse(subtitle.subtitle_body).map(line => ({
+			return JSON.parse(subtitle.subtitle_body).map((line) => ({
 				text: line.text || "♪",
-				startTime: line.time.total * 1000
+				startTime: line.time.total * 1000,
 			}));
 		}
 
@@ -152,28 +196,31 @@ const ProviderMusixmatch = (() => {
 			if (!lyrics) {
 				return null;
 			}
-			return lyrics.split("\n").map(text => ({ text }));
+			return lyrics.split("\n").map((text) => ({ text }));
 		}
 
 		return null;
 	}
 
-	async function getTranslation(body) {
-		const track_id = body?.["matcher.track.get"]?.message?.body?.track?.track_id;
-		if (!track_id) return null;
+	async function getTranslation(trackId) {
+		if (!trackId) return null;
+
+		const selectedLanguage = CONFIG.visual["musixmatch-translation-language"] || "none";
+		if (selectedLanguage === "none") return null;
 
 		const baseURL =
-			"https://apic-desktop.musixmatch.com/ws/1.1/crowd.track.translations.get?translation_fields_set=minimal&selected_language=en&comment_format=text&format=json&app_id=web-desktop-app-v1.0&";
+			"https://apic-desktop.musixmatch.com/ws/1.1/crowd.track.translations.get?translation_fields_set=minimal&comment_format=text&format=json&app_id=web-desktop-app-v1.0&";
 
 		const params = {
-			track_id,
-			usertoken: CONFIG.providers.musixmatch.token
+			track_id: trackId,
+			selected_language: selectedLanguage,
+			usertoken: CONFIG.providers.musixmatch.token,
 		};
 
 		const finalURL =
 			baseURL +
 			Object.keys(params)
-				.map(key => `${key}=${encodeURIComponent(params[key])}`)
+				.map((key) => `${key}=${encodeURIComponent(params[key])}`)
 				.join("&");
 
 		let result = await Spicetify.CosmosAsync.get(finalURL, null, headers);
@@ -184,7 +231,10 @@ const ProviderMusixmatch = (() => {
 
 		if (!result.translations_list?.length) return null;
 
-		return result.translations_list.map(({ translation }) => ({ translation: translation.description, matchedLine: translation.matched_line }));
+		return result.translations_list.map(({ translation }) => ({
+			translation: translation.description,
+			matchedLine: translation.matched_line,
+		}));
 	}
 
 	return { findLyrics, getKaraoke, getSynced, getUnsynced, getTranslation };
